@@ -6,6 +6,7 @@ import 'package:flutterfirebase/features/user_auth/firebase_auth_implementation/
 import 'package:flutterfirebase/features/user_auth/presentation/pages/home_page.dart';
 import 'package:flutterfirebase/features/user_auth/presentation/pages/login_page.dart';
 import 'package:flutterfirebase/features/user_auth/presentation/widgets/form_container_widget.dart';
+import 'package:flutterfirebase/global/common/toast.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -15,6 +16,7 @@ class SignUpPage extends StatefulWidget {
 }
 
 class _SignUpPageState extends State<SignUpPage> {
+  bool _isSigningUp = false;
 
   final FirebaseAuthService _auth = FirebaseAuthService();
 
@@ -88,7 +90,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(
-                      child: Text(
+                      child: _isSigningUp ? CircularProgressIndicator(color: Colors.white): Text(
                         "Sign Up",
                         style: TextStyle(
                             color: Colors.white, fontWeight: FontWeight.bold),
@@ -133,6 +135,13 @@ class _SignUpPageState extends State<SignUpPage> {
   }
   
   void _signUp() async {
+
+    setState((){
+
+      _isSigningUp = true;
+
+    });
+ 
  
     String email = _emailController.text;
     String password = _passwordController.text;
@@ -140,11 +149,18 @@ class _SignUpPageState extends State<SignUpPage> {
   
     User? user = await _auth.signUpWithEmailAndPassword(email, password);
 
+   setState((){
+
+      _isSigningUp = false;
+
+    });
+       
+
     if (user != null) {
-      print("User is succesfully created");
+      showToast(message: "User is succesfully created");
       Navigator.push(context, MaterialPageRoute(builder: (context) => HomePage()));
     } else {
-      print("Some error occured");
+      showToast(message: "Some error occured");
     }
   }
   

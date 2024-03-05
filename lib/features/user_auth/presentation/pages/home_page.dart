@@ -3,6 +3,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutterfirebase/features/user_auth/presentation/pages/login_page.dart';
+import 'package:flutterfirebase/global/common/toast.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,7 +33,8 @@ class _HomePageState extends State<HomePage> {
             onTap: () {
               FirebaseAuth.instance.signOut();
               Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => LoginPage()));
+              MaterialPageRoute(builder: (context) => LoginPage()));
+              showToast(message: "Signed out");
             },
             child: Container(
               height: 45,
