@@ -2,6 +2,8 @@
 
 // import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutterfirebase/features/user_auth/presentation/services/firestore.dart';
 // import 'package:flutterfirebase/features/user_auth/presentation/pages/login_page.dart';
@@ -22,8 +24,31 @@ class _HomePageState extends State<HomePage> {
 
   //text Controller
   final TextEditingController textConroller = TextEditingController();
+  // ignore: non_constant_identifier_names
+  late String? userId; // Variable to store the user ID
+  late String? userEmail; // Variable to store the user ID
+  late String? userDisplayName; // Variable to store the user ID
 
-  void openInput() {
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentUserId();
+  }
+
+  // Function to get the current user's ID
+  void _getCurrentUserId() async {
+    // Retrieve the current user from Firebase Authentication
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      setState(() {
+        userId = user.uid;
+        userEmail = user.email;
+      });
+    }
+  }
+
+  void openInput({String? docID}) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -33,16 +58,21 @@ class _HomePageState extends State<HomePage> {
         actions: [
           //button to save
           ElevatedButton(
-            onPressed: () {
-              //add new note
-              fireStoreService.addNote(textConroller.text);
-              //clear the text controller
-              textConroller.clear();
-              //close the box
-              Navigator.pop(context);
-
-            }, 
-            child: Text("Add"))
+              onPressed: () {
+                //add new note
+                if (docID == null) {
+                  fireStoreService.addNote(
+                      textConroller.text, userId!, userEmail!);
+                } else {
+                  //update existing note if docID is not null
+                  fireStoreService.updateNote(docID, textConroller.text);
+                }
+                //clear the text controller
+                textConroller.clear();
+                //close the box
+                Navigator.pop(context);
+              },
+              child: Text("Add"))
         ],
       ),
     );
@@ -72,42 +102,92 @@ class _HomePageState extends State<HomePage> {
           backgroundColor: Colors.black,
         ),
       ),
-      body: Column(
+        body: StreamBuilder<QuerySnapshot>(
+        stream: getNotesStream(), // Call your function to get the stream
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return CircularProgressIndicator(); // Display a loading indicator while waiting for data
+          }
 
-          /*
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
- 
+          if (snapshot.hasError) {
+            return Text('Error: ${snapshot.error}');
+          }
 
-          GestureDetector(
-            onTap: () {
-              FirebaseAuth.instance.signOut();
-              Navigator.push(context,
-              MaterialPageRoute(builder: (context) => LoginPage()));
-              showToast(message: "Signed out");
-            },
-        
-              child: Center(
-                child: Container(
-                  
-                  height: 45,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 2, 14, 24),
-                   
-                  ),
-                  child: Center(
-                    child: Text(
-                      "Sign Out",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-              ),
-         
-          ),
-        ], */
-          ),
+          // If the stream has data
+          if (snapshot.hasData) {
+            // Extract the list of documents from the snapshot
+            final List<DocumentSnapshot> notes = snapshot.data!.docs;
+
+
+            // Your logic to display the data, for example:
+            return ListView.builder(
+              itemCount: notes.length,
+              itemBuilder: (context, index) {
+
+                // Access the fields from the document
+                final Map<String, dynamic> data = notes[index].data() as Map<String, dynamic>;
+                final String note = data['note'];
+                final String userId = data['userId'];
+                final String userEmail = data['userEmail'];
+                 final String docID = notes[index].id;
+
+
+                // Display the data in your UI
+                    return ListTile(
+                        title: Row(
+                          children: [
+                            Text(note),
+                            SizedBox(
+                                height:
+                                    8), // Add space between the two Text widgets if needed
+
+                            // Display userId with left margin
+                            Padding(
+                              padding: EdgeInsets.only(left: 8),
+                              child: Text(
+                                userEmail,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          //Update
+                          children: [
+                            IconButton(
+                              onPressed: () => openInput(docID: docID),
+                              icon: const Icon(Icons.edit),
+                            ),
+
+                            //Delete
+                            IconButton(
+                              onPressed: () =>
+                                  fireStoreService.deleteNote(docID),
+                              icon: const Icon(Icons.delete),
+                            ),
+                          ],
+                        ),
+                      );
+              },
+            );
+          }
+
+          return Text('No data available'); // Display a message if there is no data
+        },
+      ),
     );
+  }
+  
+   Stream<QuerySnapshot> getNotesStream() {
+     final notesStream = FirebaseFirestore.instance
+      .collection('notes') // Replace 'your_collection_name' with your actual collection name
+      .where('userId', isEqualTo: userId)
+      .orderBy('timestamp', descending: true)
+      .snapshots();
+
+  return notesStream;
   }
 }
